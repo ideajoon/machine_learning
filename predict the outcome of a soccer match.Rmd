@@ -1,0 +1,385 @@
+# =======================================
+written by ideajoon
+date: '2019-04-07'
+# Assingment #1 (Naive bayes classifier)
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+Sys.setlocale('LC_ALL','C')
+```
+
+# 1. Objectives
+Developing a system that can predict the outcome of a soccer match.
+
+# 2. Hypothesis
+The outcome of a match can be predicted by the statistical data of first half-time.
+(= This data will affects the result of a soccer match)  
+
+
+# 3. Methods 
+Use the R programming to learn train-data and predict the outcome of test-data 
+with Naive Bayes Classifier
+
+
+# 4. Data preprocessing
+## 4-1. LOAD A DATASET.
+This dataset includes 3,719 instances and 1 class, 14 features.
+This dataset contains data for last 10 seasons of English Premier League including current season. 
+The data is sourced from http://www.football-data.co.uk/ website and contains various statistical data
+such as final and half time result, corners, yellow and red cards etc.
+
+```{r}
+# load the dataset
+match.data <- read.csv(file="C://Users//joon//Documents//10years season-0919-v3.csv", header = TRUE)
+head(match.data)
+```
+
+
+## 4-2. Prediction with Naive Bayes Classification.
+The e1071 package contains a function named naiveBayes() which is performing Bayes classification.
+The model is trained on training dataset[data_train] to make predictions by predict() function.
+
+```{r}
+# load the library
+library(e1071)
+library(caret)
+# define an 80%/20% train/test split of the datase
+set.seed(3333)
+split=0.70
+trainIndex <- createDataPartition(match.data$FTR, p=split, list=FALSE)
+data_train <- match.data[trainIndex, ]
+data_test <- match.data[-trainIndex, ]
+# train a naive bayes model
+model <- naiveBayes(FTR ~ ., data = data_train)
+# make predictions
+x_test <- data_test[,-1]
+y_test <- data_test[,1]
+pred <- predict(model, x_test)
+# summarize results, include table(pred, y_test)
+confusionMatrix(pred, y_test)
+table(pred, y_test)
+```
+
+
+## 4-3. Check Missing Data
+```{r}
+# count of feature's null
+sum(is.na(match.data[,1:15]))
+```
+
+
+# 5. Exploratory Data Analysis
+## 5-1. correlation matrix plot
+A default correlation matrix plot (called a Correlogram) is generated. 
+Positive correlations are displayed in a blue scale while negative correlations are displayed in a red scale.
+```{r}
+# correlation matrix plot
+library(corrplot)
+match.data_cor <- cor(match.data[,-1])
+corrplot(match.data_cor, 
+         method="shade", 
+         addshade="all",
+         tl.col="red", 
+         tl.srt=30, 
+         diag=FALSE, 
+         addCoef.col="black", 
+         order="FPC"
+        )
+# scatter-plot matrix, correlation, histogram
+library(psych)
+pairs.panels(match.data[,-1])
+```
+
+
+## 5-2. Recheck correalation after removing 'HS, AS' columns with high correlation
+```{r}
+# Remove columns with high correlation
+match2.data <- match.data[,-4:-5]
+# Correlation matrix plot
+match2.data_cor <- cor(match2.data[,-1])
+corrplot(match2.data_cor, method="shade", addshade="all", tl.col="red", tl.srt=30, 
+         diag=FALSE, addCoef.col="black", order="FPC" 
+        )
+# scatter-plot matrix, correlation, histogram
+library(psych)
+pairs.panels(match2.data[,-1])
+```
+
+# 6. Select of Optimal Models and Visualization.
+## 6-1. Reprediction with match2.data (Naive Bayes Classification)
+```{r}
+# define an 70%/30% train/test split of the datase
+set.seed(3333)
+split=0.70
+trainIndex2 <- createDataPartition(match2.data$FTR, p=split, list=FALSE)
+data_train2 <- match2.data[trainIndex2, ]
+data_test2 <- match2.data[-trainIndex2, ]
+# train a naive bayes model
+model2 <- naiveBayes(FTR ~ ., data = data_train2)
+# make predictions
+x_test2 <- data_test2[,-1]
+y_test2 <- data_test2[,1]
+pred2 <- predict(model2, x_test2)
+# summarize results, include table(pred2, y_test2)
+confusionMatrix(pred2, y_test2)
+table(pred2, y_test2)
+```
+
+
+
+## 6-2. 'match2.data' data Visualization
+```{r}
+library(dplyr) # %>% 'pipeline' package
+library(tidyr) # gather package
+# check variable's distribution with histogram
+match2.data %>%
+  gather(name, value, 2:13, -FTR) %>% 
+  ggplot(aes(value, fill = name)) + 
+  geom_histogram(show.legend = FALSE) + 
+  facet_wrap(~ name, scales = "free")
+# check variable's distribution with boxplot
+match2.data %>%
+  gather(name, value, 2:13, -FTR) %>% 
+  ggplot(aes(y=value, x=FTR, fill = FTR)) + 
+  geom_boxplot(show.legend = TRUE) + 
+  facet_wrap(~ name, scales = "free")
+```
+
+
+## 6-3. After convert integer columns to factor columns
+```{r}
+# change to Categorical variable
+str(match2.data)
+match3.data <- match2.data
+match3.data$AR <- as.factor(match3.data$AR)
+match3.data$HR <- as.factor(match3.data$HR)
+str(match3.data)
+```
+
+
+## 6-4. Reprediction for match3.data with Naive Bayes Classification
+```{r}
+# define an 70%/30% train/test split of the datase
+set.seed(3333)
+split=0.70
+trainIndex3 <- createDataPartition(match3.data$FTR, p=split, list=FALSE)
+data_train3 <- match3.data[trainIndex3, ]
+data_test3 <- match3.data[-trainIndex3, ]
+# train a naive bayes model
+model3 <- naiveBayes(FTR ~ ., data = data_train3)
+# make predictions
+x_test3 <- data_test3[,-1]
+y_test3 <- data_test3[,1]
+pred3 <- predict(model3, x_test3)
+# summarize results, include table(pred3, y_test3)
+confusionMatrix(pred3, y_test3)
+table(pred3, y_test3)
+```
+
+
+## 6-5. Change to binomial Classification
+```{r}
+# multi Classvalue -> binary Classvalue
+a <- gsub("H","win",match2.data$FTR)
+b <- gsub("D","nowin",a)
+newclass <- gsub("A","nowin",b)
+match4.data <- match2.data
+match4.data$FTR <- as.factor(newclass)
+str(match2.data)
+str(match4.data)
+head(match4.data)
+tail(match4.data)
+```
+
+
+## 6-6. Reprediction for match4.data with Naive Bayes Classification
+```{r}
+# define an 70%/30% train/test split of the datase
+set.seed(3333)
+split=0.70
+trainIndex4 <- createDataPartition(match4.data$FTR, p=split, list=FALSE)
+data_train4 <- match4.data[trainIndex4, ]
+data_test4 <- match4.data[-trainIndex4, ]
+# train a naive bayes model
+model4 <- naiveBayes(FTR ~ ., data = data_train4)
+# make predictions
+x_test4 <- data_test4[,-1]
+y_test4 <- data_test4[,1]
+pred4 <- predict(model4, x_test4)
+# summarize results, include table(pred4, y_test4)
+confusionMatrix(pred4, y_test4)
+table(pred4, y_test4)
+```
+
+
+
+## 6-7. Calculation AUC (Area Under Curve) and Plot ROC Curve (Receiver Operating Characteristic Curve)
+```{r}
+#Calculate AUC
+library(pROC)
+library(MASS)
+Diag_DF <- data.frame(Attribute=c(colnames(match4.data)[2:13]), AUC=NA)   # create dataframe for AUC 
+for(i in 1:nrow(Diag_DF)){
+  roc_result <- roc(match4.data$FTR, match4.data[,as.character(Diag_DF$Attribute[i])])   
+  Diag_DF[i,'AUC'] <- roc_result$auc  
+}
+Diag_DF <- Diag_DF[order(-Diag_DF$AUC),]  
+Diag_DF 
+#ROC curve plot
+HTHG_roc <- roc(match4.data$FTR, match4.data$HTHG)  
+plot.roc(HTHG_roc,  
+         col="red",  
+         print.auc=TRUE, print.auc.adj=c(1.6,-8), 
+         max.auc.polygon=TRUE, print.thres.adj=c(0.3,-1.2),
+         print.thres=TRUE, print.thres.pch=19, print.thres.col = "red",  
+         auc.polygon=TRUE, auc.polygon.col="#D1F2EB")
+AST_roc <- roc(match4.data$FTR, match4.data$AST) 
+plot.roc(AST_roc,  
+         add=TRUE,  
+         col="blue",  
+         print.auc=TRUE, print.auc.adj=c(0.3, 0.2), 
+         print.thres=TRUE, print.thres.pch=19, 
+         print.thres.col = "blue", print.thres.adj=c(-0.085,1.1)) 
+legend("bottomright",  
+       legend=c("HTHG", "AST"),  
+       col=c("red", "blue"), lwd=2) 
+```
+
+
+
+## 6-8. 'data_train4' data Visualization
+```{r}
+library(dplyr) # %>% 'pipeline' package
+library(tidyr) # gather package
+# check variable's distribution with density
+data_train4 %>%
+  gather(name, value, 2:13, -FTR) %>% 
+  ggplot(aes(value, fill = FTR)) + 
+  geom_density(alpha = 0.5, show.legend = TRUE) + 
+  facet_wrap(~ name, scales = "free")
+# check variable's distribution with boxplot
+data_train4 %>%
+  gather(name, value, 2:13, -FTR) %>% 
+  ggplot(aes(y=value, x=FTR, fill = FTR)) + 
+  geom_boxplot(show.legend = TRUE) + 
+  facet_wrap(~ name, scales = "free")
+```
+
+
+
+## 6-9. Model K-Fold Cross-Validation Ver1
+The caret package contains train() function which is performing navie bayes classification and K-fold cross-validation.
+The trainControl argument tells the trainer to use cross-validation ('cv') with 10 folds.
+```{r}
+# load the library
+library(caret)
+# K-fold Cross Validation
+x <- match4.data[,-1]
+y <- match4.data$FTR
+model5 <- train(x,y,method='nb',trControl = trainControl(method='cv', number = 10, savePredictions = TRUE))
+confusionMatrix(model5)
+cat("Accuracy(k=10) = ", model5$resample$Accuracy)
+```
+
+
+## 6-10. Model K-Fold Cross-Validation Ver2
+Without using 'caret' package's train() function, apply K-fold cv with cording.
+```{r}
+# Create k equally size folds
+set.seed(1122)
+match5.data <- match4.data[sample(nrow(match4.data)),]
+k <- 10
+folds <- cut(seq(1,nrow(match5.data)),breaks=k,labels=FALSE)
+# Perform k fold cross validation
+m_result <- data.frame(matrix(nrow=10, ncol=6))
+for(i in 1:k){
+  #Segement your data by fold using the which() function 
+  trainIndex5 <- which(folds==i,arr.ind=TRUE)
+  data_test5 <- match5.data[trainIndex5, ]
+  data_train5 <- match5.data[-trainIndex5, ]
+ 
+  # train a naive bayes model
+  model5 <- naiveBayes(FTR ~ ., data = data_train5)
+  # make predictions
+  x_test5 <- data_test5[,-1]
+  y_test5 <- data_test5[,1]
+  pred5 <- predict(model5, x_test5)
+  # create the confusion matrix
+  cm <- as.matrix(table(Predicted=pred5, Actual=y_test5))
+  # Performance Measure of ML
+  TN <- cm[1,1] # True Negative
+  FN <- cm[1,2] # False Negative
+  FP <- cm[2,1] # False Positive
+  TP <- cm[2,2] # True Positive
+  TPR <- TP/(TP+FN) # True Positive Rate
+  FPR <- FP/(FP+TN) # False Psitive Rate
+  # Accuracy
+  accuracy <- (TP+TN)/(TP+FP+FN+TN)
+  # Sensitivity, Specificity
+  sensitivity <- TPR
+  specificity <- 1-FPR
+  # Per-class Precision, Recall, and F-1
+  precision <- TP/(TP+FP)
+  recall <- TP/(TP+FN) 
+  f1 <- 2 * precision * recall / (precision + recall)
+  
+  m_result[i,] <- data.frame(accuracy, sensitivity, specificity, precision, recall, f1)
+  colnames(m_result) <- c("accuracy", "sensitivity", "specificity", "precision", "recall", "f1")
+  rownames(m_result) <- c(1:k)
+}
+# pirint result
+print(m_result)
+print(apply(m_result, 2, mean))
+ 
+```
+
+
+```{r}
+library(caret)
+# K-fold Cross Validation
+k <- c(3, 5, 10, 30, 60, 120)
+Accuracydata <- data.frame(nrow=6, ncol=2)
+for(i in k) {
+  x2 <- match4.data[,-1]
+  y2 <- match4.data$FTR
+  model6 <- train(x2,y2,method='nb',trControl = trainControl(method='cv', number = i, savePredictions = TRUE))
+  
+  if (i==3) {
+            k3 <- model6$resample$Accuracy 
+            } else if (i==5) {
+            k5 <- model6$resample$Accuracy
+            } else if (i==10) {
+            k10 <- model6$resample$Accuracy
+            } else if (i==30) {
+            k30 <- model6$resample$Accuracy
+            } else if (i==60) {
+            k60 <- model6$resample$Accuracy
+            } else if (i==120) {
+            k120 <- model6$resample$Accuracy
+            }
+}
+# check Accuracy distribution by the number of k
+boxplot(k3, k5, k10, k30, k60, k120, col=c("orange", "yellow", "green", "pink", "gray", "yellowgreen"),ylab="Accuracy", xlab="the number of k", names = c("k3", "k5", "k10", "k30", "k60", "k120"), main = "Accuracy distribution by the number of k")
+```
+
+
+# 7. Summary
+## 7-1. Better Naive Bayes’s performance
+To increase performance, we need to check missing data, 
+remove redundant features, change data type and level of class variable.
+For instance, if the data contains highly correlated features,
+the performance of Naive Bayes can degrade.
+So we removed those features that are the most highly correlated.
+In the end, we got an accuracy of 0.7548 (the initial accuracy of 0.6275)
+
+## 7-2. Relationship between K and Bias and Variance
+Remember, if K is small, the evaluation of the model will not be accurate.
+But if K is higher, we will get lower bias, higher variance for the evaluation.
+So we should focus on achieving a balance between bias and variance.
+
+
+# 8. Conclusion
+We recommend the k-fold cross-validation to estimate the prediction error rate.
+When choosing K number, consider reducing the variance and controlling bias. 
+Binary classification is better than multi classification for Naive bayes classifier.
+And highly correlated features should be removed for good performance . 
