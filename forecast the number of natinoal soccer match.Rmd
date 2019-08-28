@@ -1,0 +1,413 @@
+# =======================================
+written by ideajoon
+date: "2019년 6월 2일"
+# Assingment #3 (Time Series)
+
+
+# 1. Objectives(Business problem)
+The objective of this project is to forecast the number of natinoal soccer match in next three years. 
+Using time series models, we create a service that we offer information which is the number of natinoal soccer match in the near future.
+
+# 2. Hypothesis
+the monthly national soccer matches can be predicted through time series analysis with a prepared dataset.
+
+# 3. Select Optimal Dataset
+## Dataset Description (single variable for time series analytics)
+The dataset includes 1,416 instances and 1 response variable and 1 time variable.
+This dataset contains data for the number of national soccer match monthly in the past over 100 years (1900 ~ 2017).
+The data is sourced from https://www.kaggle.com/martj42/international-football-results-from-1872-to-2017 website and 
+contains various data such as below
+
+### 1) time variable (1900 ~ 2017, month)
+### 2) int variable (the number of national soccer match)
+
+
+# 4. Data Preparation
+cleaning and transforming raw data prior to processing and analysis
+```{r}
+library(AER)
+library(readxl)
+library(dynlm)
+library(quantmod)
+library(scales)
+library(fGarch)
+```
+
+## 4-1 Load a dataset.
+```{r}
+# load the dataset
+library(readxl)
+match = read_xls("C://Users//joon//Documents//soccer_national_match05.xls")
+# head(position.data)
+str(match)
+dim(match)
+```
+
+## 4-2 Checking Missing Value
+result : no null values.
+```{r}
+table(is.na.data.frame(match))
+```
+
+## 4-3 Converting the dataset to a Time series object
+```{r}
+match.ts <- ts(match$num_match, start = c(1900, 1),end = c(2017, 12),frequency = 12)
+```
+
+
+# 5. Exploratory Data Analysis
+
+## 5-1 Plotting the time series data.
+result : It is a time series graph that has trend and seasonal components and increases variation with time.
+추세성분과 계절성분을 갖고 시간의 변화에 따라 변동폭이 커지는 시계열 그래프 형태이다.
+```{r}
+plot(match.ts)  
+abline(reg = lm(match.ts~time(match.ts)))
+```
+
+## 5-2 Checking for Stationarity
+Stationarity : At any point(time), the average, variance, and auto-covariance measurements have the same value.
+
+정상성 조건 : 어떤 시점에서 평균, 분산, 자기공분산을 측정하더라도 동일한 값을 갖는다.
+
+(1) 평균이 일정 : 모든 시점에 대해 일정한 평균을 가진다.
+- 평균이 일정하지 않은 시계열은 차분(difference)을 통해 정상화
+- 차분은 현시점 자료에서 이전 시점 자료를 빼는 것
+(2) 분산도 시점에 의존하지 않음
+- 분산이 일정하지 않은 시계열은 변환(transformation)을 통해 정상화
+(3) 공분산도 시차에만 의존할 뿐, 특정 시점에는 의존하지 않음
+
+result : From the result we can clearly see that P value < 0.05 which means that we accept the 
+alternative hypothesis,i.e., the given Time series is stationary.
+```{r}
+library(tseries)
+library(forecast)
+adf.test(match.ts, alternative = "stationary")
+```
+
+## 5-3 Extracting the Seasonality and Trend
+result : The below graph shows that the mean and the variance are not constant.
+결과 : trend그래프를 보면 평균이 일정하지 않고 observed그래프를 보면 분산이 조금씩 증가하는 것을 알 수 있다.
+```{r}
+x<-decompose(match.ts,type = c("multiplicative"))
+plot(x)
+# Through this plot we can easily identify the Trend, Seasonality and Irregular
+# components in our Time series
+```
+
+## 5-4 Seasonal displays
+결과 : 6월을 제외하고는 계절별 경기수는 큰 차이가 없다. 
+
+result : Except for June, there is no big difference in the number of soccer match per season.
+```{r}
+monthplot(match.ts)
+```
+
+
+# 6. Select of Optimal Models and Visualization.
+
+## 6-1 ARIMA Model
+
+### 6-1-1 Differencing for converting Non-stationary to stationary.
+Since our series is Non-stationary, we have to make it stationary. 
+
+result : d = 1
+```{r}
+# tells us the number of differences(d) required to achieve stationarity
+ndiffs(match.ts)
+```
+
+결과 : 1차 차분만 해도 어느정도 정상화 패턴을 보임. 
+```{r}
+# 차분을 통해 데이터 정상화
+match_diff1 <- diff(match.ts, differences = 1)
+match_diff2 <- diff(match.ts, differences = 2)
+match_diff3 <- diff(match.ts, differences = 3)
+par(mfrow = c(2,2))
+plot.ts(match.ts)
+plot.ts(match_diff1)    # 1차 차분만 해도 어느정도 정상화 패턴을 보임
+plot.ts(match_diff2)
+plot.ts(match_diff3)
+```
+
+### 6-1-2 Trend of increasing variance -> adjusting variance by log transformation
+result : Even after log transformation, variances differ at certain times.
+So we will not use log transformation.
+```{r}
+#just orginal time series data
+plot.ts(match.ts)
+#converting with log
+match.ts_log <- log(match.ts)
+plot.ts(match.ts_log)
+```
+
+
+### 6-1-3 Determination of Order of Auto regression(p) and order of Moving averages(q)
+now we know the value of p,d and q we can create our model using Arima(p,d,q) function
+
+Acf()로 lag 몇에서 절단값인지 알 수 있다. 예를 들어 lag 1 절단값 이면 MA(0)가 되고 q=0 가 된다.
+결과 : 차분 이후에도 절단값이 명확하지 않아서 ARIMA 모형 확정이 어렵다.
+```{r}
+par(mfrow = c(1,2))
+# Autocorrelation function
+# This is used for finding the order of Auto regression(p)
+acf(match.ts)
+# This is used for finding the order of Auto regression(p) with d=1 series.
+acf(match_diff1)     
+```
+
+
+Pacf()로 lag 몇에서 절단값인지 알 수 있다. 예를 들어 lag 4 절단값 이면 AR(3)가 되고 p=3 가 된다.
+결과 : 차분(d=1) 이후에도 절단값이 명확하지 않아서 ARIMA 모형 확정이 어렵다.
+```{r}
+par(mfrow = c(1,2))
+# Partial Autocorrelation function
+# This is used for finding the order of Moving averages(q)
+pacf(match.ts) 
+# This is used for finding the order of Moving averages(q) with d=1 series.
+pacf(match_diff1)    
+```
+
+Acf() and Pacf() in forecast, along with a combination display using tsdisplay()
+
+결과 : tsdisplay()를 사용한 ACF, PACF를 통해서도 절단값이 명확하지 않아서 ARIMA 모형 확정이 어렵다.
+```{r}
+tsdisplay(match_diff1)
+```
+
+### 6-1-4 Using the Auto.Arima function with match.ts
+```{r}
+match_auto.arima <- auto.arima(match.ts)
+summary(match_auto.arima)
+accuracy(match_auto.arima)  #  Accuracy of the Model
+```
+
+### 6-1-5 Forecasting the future values
+Forecasts 2018 ~ 2020 from ARIMA(1,0,1)(0,1,2)[12]
+```{r}
+match_fcast <- forecast(match_auto.arima, h=36, level = 95)
+plot(match_fcast, main="Forecasts 2018 ~ 2020 from ARIMA(1,0,1)(0,1,2)[12]")
+```
+
+### 6-1-6 Auto.Arima Model Evaluation
+The residuals are even.
+But p-value(lag = 1,2,3) can not reject null hypothesis(= auto-correlation is zero)
+
+잔차가 균등하다.
+하지만 p-value가 lag=1,2,3 에서만 귀무가설(자기상관이 0이다.)을 기각하지 못한다.
+결과적으로 우리는 일정 부분에서 적절하지 않은 Arima 모형을 선정한 것이다.
+그래서 LSTM 모델을 적용해 보도록 하겠다.
+```{r}
+tsdiag(match_auto.arima)
+```
+
+
+## 6-2 LSTM (Long Short-Term Memory Units)
+RNN은 관련 정보와 그 정보를 사용하는 지점 사이 거리가 멀 경우 역전파시 그래디언트가 점차 줄어 학습능력이 크게 저하되는 것으로 알려져 있습니다. 
+이 문제를 극복하기 위해서 고안된 것이 바로 LSTM입니다. LSTM은 RNN의 히든 state에 cell-state를 추가한 구조입니다. 
+LSTM은 오차의 그라디언트가 시간을 거슬러서 잘 흘러갈 수 있도록 도와줍니다. 
+backprop하는 과정에서 오차의 값이 더 잘 유지되는데, 결과적으로 1000단계가 넘게 거슬러 올라갈 수 있습니다.
+
+### 6-2-1 Load the neccessary libraries & the dataset
+```{r}
+#install.packages("devtools")
+#devtools::install_github("rstudio/keras")
+#install_tensorflow() # 일반적인 
+#install_keras(tensorflow = "gpu") #노트북이 GPU 지원하는 경우
+#install_keras() #노트북이 일반 내장형 그래픽카드일 경우
+library(devtools)
+library(tensorflow)
+library(keras)
+```
+
+### 6-2-2 Data preparation
+1) Transform data to stationary
+```{r}
+# transform data to stationarity
+diffed = diff(match.ts, differences = 1)
+head(diffed)
+```
+
+2) Lagged dataset
+LSTM expects the data to be in a supervised learning mode. That is, having a target variable Y and predictor X. To achieve this, we transform the series by lagging the series and have the value at time (t-k) as the input and value at time t as the ouput, for a k-step lagged dataset. 
+```{r}
+# create a lagged dataset, i.e to be supervised learning
+lag_transform <- function(x, k= 1){
+    
+      lagged =  c(rep(NA, k), x[1:(length(x)-k)])
+      DF = as.data.frame(cbind(lagged, x))
+      colnames(DF) <- c( paste0('x-', k), 'x')
+      DF[is.na(DF)] <- 0
+      return(DF)
+}
+supervised = lag_transform(diffed, 1)
+head(supervised)
+```
+
+3) Split dataset into training and testing sets
+Unlike in most analysis where training and testing data sets are randomly sampled, with time series data the order of the observations does matter. The following code split the first 70% of the series as training set and the remaining 30% as test set.
+```{r}
+## split into train and test sets
+N = nrow(supervised)
+n = round(N *0.85, digits = 0)
+train = supervised[1:n, ]
+test  = supervised[(n+1):N,  ]
+```
+
+
+4) Normalize the data
+Just like in any other neural network model, we rescale the input data X to the range of the activation function. As shown earlier, the default activation function for LSTM is sigmoid function whose range is [-1, 1]. The code below will help in this transformation. Note that the min and max values of the training data set are the scaling coefficients used to scale both the training and testing data sets as well as the predicted values. This ensures that the min and max values of the test data do not influence the model.
+```{r}
+## scale data
+scale_data = function(train, test, feature_range = c(0, 1)) {
+  x = train
+  fr_min = feature_range[1]
+  fr_max = feature_range[2]
+  std_train = ((x - min(x) ) / (max(x) - min(x)  ))
+  std_test  = ((test - min(x) ) / (max(x) - min(x)  ))
+  
+  scaled_train = std_train *(fr_max -fr_min) + fr_min
+  scaled_test = std_test *(fr_max -fr_min) + fr_min
+  
+  return( list(scaled_train = as.vector(scaled_train), scaled_test = as.vector(scaled_test) ,scaler= c(min =min(x), max = max(x))) )
+  
+}
+Scaled = scale_data(train, test, c(-1, 1))
+y_train = Scaled$scaled_train[, 2]
+x_train = Scaled$scaled_train[, 1]
+y_test = Scaled$scaled_test[, 2]
+x_test = Scaled$scaled_test[, 1]
+```
+
+The following code will be required to revert the predicted values to the original scale.
+```{r}
+## inverse-transform
+invert_scaling = function(scaled, scaler, feature_range = c(0, 1)){
+  min = scaler[1]
+  max = scaler[2]
+  t = length(scaled)
+  mins = feature_range[1]
+  maxs = feature_range[2]
+  inverted_dfs = numeric(t)
+  
+  for( i in 1:t){
+    X = (scaled[i]- mins)/(maxs - mins)
+    rawValues = X *(max - min) + min
+    inverted_dfs[i] <- rawValues
+  }
+  return(inverted_dfs)
+}
+```
+
+
+### 6-2-3 Modeling
+```{r relu, echo=FALSE, fig.cap="A caption", out.width = '100%'}
+knitr::include_graphics("C://Users//joon//Documents//gates_lstm.png")
+```
+
+1) Define the model
+히든 레이어에서 넘겨받은 상태를 다음 배치의 샘플에 대한 초기 상태로 재사용할 수 있도록 stateful= TRUE로 설정하고, 네트워크가 상태 저장적이기 때문에 현재의 [samples, features]로 부터 3차원 배열의 [samples, timesteps, features]로 입력 배치로 만들어야 한다.
+
+(1) Samples: Number of observations in each batch. In this model the batch size = 1.
+
+(2) Timesteps: Separate time steps for a given observations. In this model the timesteps = 1
+
+(3) Features: For a univariate case, like in this model, the features = 1
+
+```{r}
+# Reshape the input to 3-dim
+dim(x_train) <- c(length(x_train), 1, 1)
+# specify required arguments
+X_shape2 = dim(x_train)[2]
+X_shape3 = dim(x_train)[3]
+batch_size = 1                # must be a common factor of both the train and test samples
+units = 1                     # can adjust this, in model tuninig phase
+#=========================================================================================
+model <- keras_model_sequential() 
+model%>%
+  layer_lstm(units, batch_input_shape = c(batch_size, X_shape2, X_shape3), stateful= TRUE)%>%
+  layer_dense(units = 1)
+```
+
+
+2) Compile the model (model constructure)
+Here I have specified the mean_squared_error as the loss function, Adaptive Monument Estimation (ADAM) as the optimization algorithm and learning rate and learning rate decay over each update. Finaly, I have used the accuracy as the metric to assess the model performance.
+```{r}
+model %>% compile(
+  loss = 'mean_squared_error',
+  optimizer = optimizer_adam( lr= 0.02, decay = 1e-6 ),  
+  metrics = c('accuracy')
+)
+summary(model)
+```
+
+
+3) Fit the model (Traing)
+We set the argument shuffle = FALSE to avoid shuffling the training set and maintain the dependencies between xi and xi+t. LSTM also requires resetting of the network state after each epoch. To achive this we run a loop over epochs where within each epoch we fit the model and reset the states via the argument reset_states().
+```{r}
+Epochs = 100   
+for(i in 1:Epochs ){
+  model %>% fit(x_train, y_train, epochs=1, batch_size=batch_size, verbose=1, shuffle=FALSE)
+  model %>% reset_states()
+}
+```
+
+4) Make predictions
+```{r}
+L = length(x_test)
+scaler = Scaled$scaler
+predictions = numeric(L)
+for(i in 1:L){
+     X = x_test[i]
+     dim(X) = c(1,1,1)
+     yhat = model %>% predict(X, batch_size=batch_size)
+     # invert scaling
+     yhat = invert_scaling(yhat, scaler,  c(-1, 1))
+     # invert differencing
+     yhat  = yhat + match.ts[(n+i)]
+     # store
+     predictions[i] <- yhat
+}
+```
+
+
+### 6-2-4 Plot to check accuracy of predicted value. 
+
+```{r}
+#prepare real value
+real_y_value <- match$num_match
+#prepare predicted value
+x <- c()
+x[1:1204] <- "NA" 
+predictions <- c(x, predictions)
+#plot predicted value(train:test=0.85:0.15) & real value
+plot(x=1:length(real_y_value), y=real_y_value, type="l", col="gray", xlab="time index", ylab="the number of match, monthly")
+lines(x=1:length(real_y_value), y=predictions, col="red")
+title(main="predicted value(train:test=0.85:0.15) & real value")
+legend("topleft", c("predicted value(red)", "real value(gray)"), cex=1.2)
+```
+
+
+# 7. Summary
+First, Converted the dataset into Time series object using ts function.
+And then, Checked for stationarity and plotted the acf and pacf plots.
+And We Used decompose function to extract the seasonality and Trend components from the Time series.
+In order to forecast, we applied auto.arima model but it was not suitable. 
+because it is that p-value(lag = 1,2,3) can not reject null hypothesis(= auto-correlation is zero).
+In order to increase performance, we applied LSTM model. 
+We split train, test dataset with 0.85. and predicted value with test data.
+We used Sigmoid to reduce Gradient Loss.
+Finally, We plot to check accuracy of predicted value. It was just satisfied with plotting result. 
+
+
+# 8. Conclusion
+In order to offer better information to the clients, we selected LSTM model.
+between ARIMA and LSTM, we were satisfied with the result of LSTM model.
+I'm satisfied with the high accuracy, but I'm afraid of overfitting.
+In the future, we will study ways to reduce LSTM's overfitting and get better results.
+
+
+# 9. Recommendation for virtual clients & Further Development Direction
+Our clients are all people who love soccer. If you want to know the number of national soccer match in the near future.
+You should choose our service. This service has machine learning technology using LSTM model. 
+Is there a service with better performance? Choose our sevice. You will not regret it.
