@@ -1,0 +1,1652 @@
+---
+title: "Assignment3 includes Assignment1,2"
+author: "KIM MIN JOON 20196004"
+date: "2019년 6월 2일"
+output: html_document
+---
+
+
+
+# Statistical Learning for Soccer.
+
+## Assignment 1 : Naive bayes classifier
+Developing a system that can predict the outcome of a soccer match.
+
+## Assignment 2 : Feature Selection Regularizer
+Using a regression model, we create a service that recommends soccer positions to clients.
+
+## Assignment 3 : Time Series Analytics
+The objective of this project is to forecast the number of natinoal soccer match in next three years. 
+
+
+
+
+
+# =======================================
+date: '2019-04-07'
+# Assingment #1 (Naive bayes classifier)
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+Sys.setlocale('LC_ALL','C')
+```
+
+# 1. Objectives
+Developing a system that can predict the outcome of a soccer match.
+
+# 2. Hypothesis
+The outcome of a match can be predicted by the statistical data of first half-time.
+(= This data will affects the result of a soccer match)  
+
+
+# 3. Methods 
+Use the R programming to learn train-data and predict the outcome of test-data 
+with Naive Bayes Classifier
+
+
+# 4. Data preprocessing
+## 4-1. LOAD A DATASET.
+This dataset includes 3,719 instances and 1 class, 14 features.
+This dataset contains data for last 10 seasons of English Premier League including current season. 
+The data is sourced from http://www.football-data.co.uk/ website and contains various statistical data
+such as final and half time result, corners, yellow and red cards etc.
+
+```{r}
+# load the dataset
+match.data <- read.csv(file="C://Users//joon//Documents//10years season-0919-v3.csv", header = TRUE)
+head(match.data)
+```
+
+
+## 4-2. Prediction with Naive Bayes Classification.
+The e1071 package contains a function named naiveBayes() which is performing Bayes classification.
+The model is trained on training dataset[data_train] to make predictions by predict() function.
+
+```{r}
+# load the library
+library(e1071)
+library(caret)
+
+# define an 80%/20% train/test split of the datase
+set.seed(3333)
+split=0.70
+trainIndex <- createDataPartition(match.data$FTR, p=split, list=FALSE)
+data_train <- match.data[trainIndex, ]
+data_test <- match.data[-trainIndex, ]
+
+# train a naive bayes model
+model <- naiveBayes(FTR ~ ., data = data_train)
+
+# make predictions
+x_test <- data_test[,-1]
+y_test <- data_test[,1]
+pred <- predict(model, x_test)
+
+# summarize results, include table(pred, y_test)
+confusionMatrix(pred, y_test)
+table(pred, y_test)
+```
+
+
+## 4-3. Check Missing Data
+```{r}
+# count of feature's null
+sum(is.na(match.data[,1:15]))
+```
+
+
+# 5. Exploratory Data Analysis
+## 5-1. correlation matrix plot
+A default correlation matrix plot (called a Correlogram) is generated. 
+Positive correlations are displayed in a blue scale while negative correlations are displayed in a red scale.
+```{r}
+# correlation matrix plot
+library(corrplot)
+match.data_cor <- cor(match.data[,-1])
+corrplot(match.data_cor, 
+         method="shade", 
+         addshade="all",
+         tl.col="red", 
+         tl.srt=30, 
+         diag=FALSE, 
+         addCoef.col="black", 
+         order="FPC"
+        )
+
+# scatter-plot matrix, correlation, histogram
+library(psych)
+pairs.panels(match.data[,-1])
+```
+
+
+## 5-2. Recheck correalation after removing 'HS, AS' columns with high correlation
+```{r}
+# Remove columns with high correlation
+match2.data <- match.data[,-4:-5]
+
+# Correlation matrix plot
+match2.data_cor <- cor(match2.data[,-1])
+corrplot(match2.data_cor, method="shade", addshade="all", tl.col="red", tl.srt=30, 
+         diag=FALSE, addCoef.col="black", order="FPC" 
+        )
+
+# scatter-plot matrix, correlation, histogram
+library(psych)
+pairs.panels(match2.data[,-1])
+```
+
+# 6. Select of Optimal Models and Visualization.
+## 6-1. Reprediction with match2.data (Naive Bayes Classification)
+```{r}
+
+# define an 70%/30% train/test split of the datase
+set.seed(3333)
+split=0.70
+trainIndex2 <- createDataPartition(match2.data$FTR, p=split, list=FALSE)
+data_train2 <- match2.data[trainIndex2, ]
+data_test2 <- match2.data[-trainIndex2, ]
+
+# train a naive bayes model
+model2 <- naiveBayes(FTR ~ ., data = data_train2)
+
+# make predictions
+x_test2 <- data_test2[,-1]
+y_test2 <- data_test2[,1]
+pred2 <- predict(model2, x_test2)
+
+# summarize results, include table(pred2, y_test2)
+confusionMatrix(pred2, y_test2)
+table(pred2, y_test2)
+```
+
+
+
+## 6-2. 'match2.data' data Visualization
+```{r}
+library(dplyr) # %>% 'pipeline' package
+library(tidyr) # gather package
+
+# check variable's distribution with histogram
+match2.data %>%
+  gather(name, value, 2:13, -FTR) %>% 
+  ggplot(aes(value, fill = name)) + 
+  geom_histogram(show.legend = FALSE) + 
+  facet_wrap(~ name, scales = "free")
+
+# check variable's distribution with boxplot
+match2.data %>%
+  gather(name, value, 2:13, -FTR) %>% 
+  ggplot(aes(y=value, x=FTR, fill = FTR)) + 
+  geom_boxplot(show.legend = TRUE) + 
+  facet_wrap(~ name, scales = "free")
+
+```
+
+
+## 6-3. After convert integer columns to factor columns
+```{r}
+# change to Categorical variable
+str(match2.data)
+match3.data <- match2.data
+match3.data$AR <- as.factor(match3.data$AR)
+match3.data$HR <- as.factor(match3.data$HR)
+str(match3.data)
+```
+
+
+## 6-4. Reprediction for match3.data with Naive Bayes Classification
+```{r}
+
+# define an 70%/30% train/test split of the datase
+set.seed(3333)
+split=0.70
+trainIndex3 <- createDataPartition(match3.data$FTR, p=split, list=FALSE)
+data_train3 <- match3.data[trainIndex3, ]
+data_test3 <- match3.data[-trainIndex3, ]
+
+# train a naive bayes model
+model3 <- naiveBayes(FTR ~ ., data = data_train3)
+
+# make predictions
+x_test3 <- data_test3[,-1]
+y_test3 <- data_test3[,1]
+pred3 <- predict(model3, x_test3)
+
+# summarize results, include table(pred3, y_test3)
+confusionMatrix(pred3, y_test3)
+table(pred3, y_test3)
+```
+
+
+## 6-5. Change to binomial Classification
+```{r}
+# multi Classvalue -> binary Classvalue
+a <- gsub("H","win",match2.data$FTR)
+b <- gsub("D","nowin",a)
+newclass <- gsub("A","nowin",b)
+match4.data <- match2.data
+match4.data$FTR <- as.factor(newclass)
+str(match2.data)
+str(match4.data)
+head(match4.data)
+tail(match4.data)
+```
+
+
+## 6-6. Reprediction for match4.data with Naive Bayes Classification
+```{r}
+# define an 70%/30% train/test split of the datase
+set.seed(3333)
+split=0.70
+trainIndex4 <- createDataPartition(match4.data$FTR, p=split, list=FALSE)
+data_train4 <- match4.data[trainIndex4, ]
+data_test4 <- match4.data[-trainIndex4, ]
+
+# train a naive bayes model
+model4 <- naiveBayes(FTR ~ ., data = data_train4)
+
+# make predictions
+x_test4 <- data_test4[,-1]
+y_test4 <- data_test4[,1]
+pred4 <- predict(model4, x_test4)
+
+# summarize results, include table(pred4, y_test4)
+confusionMatrix(pred4, y_test4)
+table(pred4, y_test4)
+
+
+```
+
+
+
+## 6-7. Calculation AUC (Area Under Curve) and Plot ROC Curve (Receiver Operating Characteristic Curve)
+```{r}
+#Calculate AUC
+library(pROC)
+library(MASS)
+
+Diag_DF <- data.frame(Attribute=c(colnames(match4.data)[2:13]), AUC=NA)   # create dataframe for AUC 
+for(i in 1:nrow(Diag_DF)){
+  roc_result <- roc(match4.data$FTR, match4.data[,as.character(Diag_DF$Attribute[i])])   
+  Diag_DF[i,'AUC'] <- roc_result$auc  
+}
+Diag_DF <- Diag_DF[order(-Diag_DF$AUC),]  
+Diag_DF 
+
+#ROC curve plot
+HTHG_roc <- roc(match4.data$FTR, match4.data$HTHG)  
+plot.roc(HTHG_roc,  
+         col="red",  
+         print.auc=TRUE, print.auc.adj=c(1.6,-8), 
+         max.auc.polygon=TRUE, print.thres.adj=c(0.3,-1.2),
+         print.thres=TRUE, print.thres.pch=19, print.thres.col = "red",  
+         auc.polygon=TRUE, auc.polygon.col="#D1F2EB")
+
+AST_roc <- roc(match4.data$FTR, match4.data$AST) 
+plot.roc(AST_roc,  
+         add=TRUE,  
+         col="blue",  
+         print.auc=TRUE, print.auc.adj=c(0.3, 0.2), 
+         print.thres=TRUE, print.thres.pch=19, 
+         print.thres.col = "blue", print.thres.adj=c(-0.085,1.1)) 
+
+legend("bottomright",  
+       legend=c("HTHG", "AST"),  
+       col=c("red", "blue"), lwd=2) 
+
+```
+
+
+
+## 6-8. 'data_train4' data Visualization
+```{r}
+library(dplyr) # %>% 'pipeline' package
+library(tidyr) # gather package
+
+# check variable's distribution with density
+data_train4 %>%
+  gather(name, value, 2:13, -FTR) %>% 
+  ggplot(aes(value, fill = FTR)) + 
+  geom_density(alpha = 0.5, show.legend = TRUE) + 
+  facet_wrap(~ name, scales = "free")
+
+# check variable's distribution with boxplot
+data_train4 %>%
+  gather(name, value, 2:13, -FTR) %>% 
+  ggplot(aes(y=value, x=FTR, fill = FTR)) + 
+  geom_boxplot(show.legend = TRUE) + 
+  facet_wrap(~ name, scales = "free")
+
+```
+
+
+
+## 6-9. Model K-Fold Cross-Validation Ver1
+The caret package contains train() function which is performing navie bayes classification and K-fold cross-validation.
+The trainControl argument tells the trainer to use cross-validation ('cv') with 10 folds.
+```{r}
+# load the library
+library(caret)
+
+# K-fold Cross Validation
+x <- match4.data[,-1]
+y <- match4.data$FTR
+model5 <- train(x,y,method='nb',trControl = trainControl(method='cv', number = 10, savePredictions = TRUE))
+
+confusionMatrix(model5)
+cat("Accuracy(k=10) = ", model5$resample$Accuracy)
+```
+
+
+## 6-10. Model K-Fold Cross-Validation Ver2
+Without using 'caret' package's train() function, apply K-fold cv with cording.
+```{r}
+
+# Create k equally size folds
+set.seed(1122)
+match5.data <- match4.data[sample(nrow(match4.data)),]
+k <- 10
+folds <- cut(seq(1,nrow(match5.data)),breaks=k,labels=FALSE)
+
+# Perform k fold cross validation
+m_result <- data.frame(matrix(nrow=10, ncol=6))
+for(i in 1:k){
+  #Segement your data by fold using the which() function 
+  trainIndex5 <- which(folds==i,arr.ind=TRUE)
+  data_test5 <- match5.data[trainIndex5, ]
+  data_train5 <- match5.data[-trainIndex5, ]
+ 
+  # train a naive bayes model
+  model5 <- naiveBayes(FTR ~ ., data = data_train5)
+
+  # make predictions
+  x_test5 <- data_test5[,-1]
+  y_test5 <- data_test5[,1]
+  pred5 <- predict(model5, x_test5)
+
+
+  # create the confusion matrix
+  cm <- as.matrix(table(Predicted=pred5, Actual=y_test5))
+
+  # Performance Measure of ML
+  TN <- cm[1,1] # True Negative
+  FN <- cm[1,2] # False Negative
+  FP <- cm[2,1] # False Positive
+  TP <- cm[2,2] # True Positive
+  TPR <- TP/(TP+FN) # True Positive Rate
+  FPR <- FP/(FP+TN) # False Psitive Rate
+
+  # Accuracy
+  accuracy <- (TP+TN)/(TP+FP+FN+TN)
+
+  # Sensitivity, Specificity
+  sensitivity <- TPR
+  specificity <- 1-FPR
+
+  # Per-class Precision, Recall, and F-1
+  precision <- TP/(TP+FP)
+  recall <- TP/(TP+FN) 
+  f1 <- 2 * precision * recall / (precision + recall)
+
+  
+  m_result[i,] <- data.frame(accuracy, sensitivity, specificity, precision, recall, f1)
+  colnames(m_result) <- c("accuracy", "sensitivity", "specificity", "precision", "recall", "f1")
+  rownames(m_result) <- c(1:k)
+}
+
+# pirint result
+print(m_result)
+print(apply(m_result, 2, mean))
+ 
+```
+
+
+```{r}
+library(caret)
+
+# K-fold Cross Validation
+k <- c(3, 5, 10, 30, 60, 120)
+Accuracydata <- data.frame(nrow=6, ncol=2)
+for(i in k) {
+  x2 <- match4.data[,-1]
+  y2 <- match4.data$FTR
+  model6 <- train(x2,y2,method='nb',trControl = trainControl(method='cv', number = i, savePredictions = TRUE))
+  
+  if (i==3) {
+            k3 <- model6$resample$Accuracy 
+            } else if (i==5) {
+            k5 <- model6$resample$Accuracy
+            } else if (i==10) {
+            k10 <- model6$resample$Accuracy
+            } else if (i==30) {
+            k30 <- model6$resample$Accuracy
+            } else if (i==60) {
+            k60 <- model6$resample$Accuracy
+            } else if (i==120) {
+            k120 <- model6$resample$Accuracy
+            }
+}
+
+# check Accuracy distribution by the number of k
+boxplot(k3, k5, k10, k30, k60, k120, col=c("orange", "yellow", "green", "pink", "gray", "yellowgreen"),ylab="Accuracy", xlab="the number of k", names = c("k3", "k5", "k10", "k30", "k60", "k120"), main = "Accuracy distribution by the number of k")
+
+```
+
+
+# 7. Summary
+## 7-1. Better Naive Bayes’s performance
+To increase performance, we need to check missing data, 
+remove redundant features, change data type and level of class variable.
+For instance, if the data contains highly correlated features,
+the performance of Naive Bayes can degrade.
+So we removed those features that are the most highly correlated.
+In the end, we got an accuracy of 0.7548 (the initial accuracy of 0.6275)
+
+## 7-2. Relationship between K and Bias and Variance
+Remember, if K is small, the evaluation of the model will not be accurate.
+But if K is higher, we will get lower bias, higher variance for the evaluation.
+So we should focus on achieving a balance between bias and variance.
+
+
+# 8. Conclusion
+We recommend the k-fold cross-validation to estimate the prediction error rate.
+When choosing K number, consider reducing the variance and controlling bias. 
+Binary classification is better than multi classification for Naive bayes classifier.
+And highly correlated features should be removed for good performance . 
+
+
+
+
+
+
+
+
+
+
+
+# =======================================
+date: "2019-5-12"
+# Assingment #2 (Feature Selection Regularizer)
+
+
+# 1. Objectives(Business problem)
+Using a regression model, we create a service that recommends soccer positions to clients.
+
+# 2. Hypothesis
+The soccer position can be predicted With position dataset of European soccer players in the last ten years.
+
+# 3. Select Optimal Dataset
+## 3-1. Dataset Description
+The dataset includes 4184 instances and 1 response variable and 40 independent variables.
+This dataset contains data for soccer position information of European 4,184 soccer players in the last 10 years.
+The data is sourced from https://www.kaggle.com/hugomathien/soccer website and 
+contains various data such as below
+
+1)position_numeric 포지션을 수치로 표현
+2)position_description 포지션 상세 설명
+3)position_name 포지션 약어 명칭
+4)height 키
+5)weight 몸무기lb
+6)overall_rating 전체
+7)potential 잠재능력
+8)preferred_foot 왼발잡이? 오른발잡이?
+9)crossing 볼 크로스 능력
+10)finishing 마무리 능력
+11)heading_accuracy
+12)short_passing
+13)volleys 발리킥 능력
+14)dribbling
+15)curve 회전 킥 능력
+16)free_kick_accuracy 프리킥 정확도
+17)long_passing
+18)ball_control
+19)acceleration 질주 가속도
+20)sprint_speed 질주 속도
+21)agility 민첩성
+22)reactions 반응 능력
+23)balance 넘어지지 않는
+24)shot_power
+25)jumping 점프능력
+26)stamina 체력
+27)strength 힘
+28)long_shots 롱슛 능력
+29)aggression 공격성
+30)interceptions 볼 가로채기 능력
+31)positioning 위치 선정 능력
+32)vision 시야
+33)penalties 페널트킥 성공률
+34)marking 마킹 능력
+35)standing_tackle
+36)sliding_tackle
+37)gk_diving 키퍼 다이빙 능력
+38)gk_handling 키퍼 공터치감
+39)gk_kicking 키퍼 킥력
+40)gk_positioning 키퍼 위치선정력
+41)gk_reflexes 키퍼 반응력
+
+
+## 3-2. Numeric Position's graph
+```{r relu, echo=FALSE, fig.cap="A caption", out.width = '100%'}
+knitr::include_graphics("C://Users//joon//Documents//numeric_soccer_position.png")
+```
+
+
+# 4. Data preprocessing
+
+## 4-1 LOAD A DATASET.
+```{r}
+# load the dataset
+getwd()
+position.data <- read.csv(file="C://Users//joon//Documents//soccer_player_positions - v6.csv", header = TRUE, fileEncoding = "euc-kr")
+# head(position.data)
+str(position.data)
+```
+
+
+## 4-2 Remove Missing Value
+```{r}
+table(is.na.data.frame(position.data))
+
+library(dplyr) # for removing missing value
+position1.data <- na.omit(position.data) #Extracts missing data from all variables
+
+table(is.na(position1.data))
+```
+
+
+## 4-3 Remove unnecessary categorical variables. 
+```{r}
+# relationship between position_name and numeric
+rel_position <- position1.data[,c(1:3)] 
+
+# Remove categorical variables and meaningless variables.
+position1.data <- position1.data[,-c(2,3,6,7,33)]
+
+# Removed categorical variables
+# 2)position_description 포지션 상세 설명
+# 3)position_name 포지션 약어 명칭
+
+# Removed meaningless variables
+# 6)overall_rating 전체
+# 7)potential 잠재능력
+# 33)penalties 페널트킥 성공률
+
+```
+
+
+## 4-4 Convert factor to numeric variable
+```{r}
+# convert factor(preferred_foot) to numeric variable 
+# left_foot = 1, right_foot = 2
+position1.data[,4] <- as.numeric(position1.data[,4])
+```
+
+
+# 5. Exploratory Data Analysis
+
+## 5-1 linear regression model
+```{r}
+require(leaps)
+# linear regression model
+fit.lm <- lm(position_numeric~.,data=position1.data)
+summary(fit.lm)
+```
+The null hypothesis: The regression model is not valid.
+The alternative hypothesis: The regression model is valid.
+Result : Since the p value is 0.0000, a rare model is reasonable at the significance level of 0.05.
+
+
+## 5-2 Normality check
+- null hypothesis: Follow the normal distribution.
+- alternative hypothesis: It does not follow the normal distribution.
+At a significant level of 0.05 p, the regression model is not normally distributed.
+```{r}
+library(car)
+shapiro.test(fit.lm$residuals)
+```
+
+## 5-3 Independence check
+- null hypothesis : Each error is independent.
+- alternative hypothesis : Each error is not independent.
+If the D-W statistic is close to 2, it is not self-correlated (each independent), or if it is further away from 2, 
+it is self-correlated (each is not independent).
+p-values do not meet the independence assumption of the regression model at a significant level of 0.05.
+```{r}
+car::durbinWatsonTest(fit.lm)
+```
+
+## 5-4 Heteroscedasticity check
+- null hypothesis : Each error is Homogeneity of variance.
+- alternative hypothesis : Each error is not Homogeneity of variance.(it is Heteroscedasticity of variance)
+p값이 유의수준 0.05에서 희귀모형은 에러들은 등분산성을 만족하지 않는다.
+```{r}
+car::ncvTest(fit.lm)
+```
+
+## 5-5 Overall verification of linear model assumptions
+- Global Stat : Overall satisfaction with errors, assumtions acceptable : generally satisfied
+- Skewness(비대칭도), Kurtosis(첨도) : Normality test
+- Link Funtion : Linearity test
+- Heteroscedasticity : Heteroscedasticity test
+At a significant level of 0.05 p of Global Stat, the regression model does not meet the assumption of a linear model.
+```{r}
+library(gvlma)
+gvmodel<-gvlma(fit.lm)
+summary(gvmodel)
+fit.lm_glovalstat_pvalue <- gvmodel$GlobalTest$GlobalStat4$pvalue
+```
+
+## 5-6 Multicolinearity check
+```{r}
+sqrt(vif(fit.lm)) > 2
+```
+
+
+## 5-7 correlation matrix plot
+A default correlation matrix plot (called a Correlogram) is generated. 
+Positive correlations are displayed in a blue scale while negative correlations are displayed in a red scale.
+```{r}
+# scatter-plot matrix, correlation, histogram
+library(psych)
+pairs.panels(position1.data[,c(2:8)])
+pairs.panels(position1.data[,c(9:15)])
+pairs.panels(position1.data[,c(16:22)])
+pairs.panels(position1.data[,c(23:29)])
+pairs.panels(position1.data[,c(30:36)])
+```
+
+
+# 6. Select of Optimal Models and Visualization.
+Apply dataset to some regression models and select of Optimal Models and Visualization of Model.
+
+## 6-1 Create Training and Test Samples
+```{r}
+library(caret)
+
+set.seed(1222)
+split=0.70
+trainIndex <- createDataPartition(position1.data$position_numeric, p=split, list=FALSE)
+data_train <- position1.data[trainIndex, ]
+data_test <- position1.data[-trainIndex, ]
+
+x_train <- data_train[,-1]
+y_train <- data_train[,1]
+
+x_test <- data_test[,-1]
+y_test <- data_test[,1]
+
+x1 <- as.matrix(x_train)
+y1 <- y_train
+
+x2 <- as.matrix(x_test)
+y2 <- y_test
+```
+
+## 6-2 Linear Regression
+```{r}
+# Linear Regresstion for train dataset
+fit.lm <- lm(position_numeric~.,data=data_train)
+
+lm.prediction <- predict(fit.lm, newx = x_test)
+
+summary(fit.lm)
+```
+
+
+## 6-3 Backward Regression
+The number of independent variable : 35 -> 26
+```{r}
+# starting from full model
+full.model <- lm(position_numeric~.,data=data_train)
+fit.bwd <- step(full.model,direction="backward", trace=0)
+
+bwd.prediction <- predict(fit.bwd, newx = x_test)
+
+summary(fit.bwd)
+```
+
+## 6-4 Forward Regression
+The number of independent variable : 35 -> 26
+```{r}
+# starting from null model
+min.model <- lm(position_numeric ~ 1, data=data_train)
+biggest <- formula(lm(position_numeric~., position1.data))
+fit.fwd <- step(min.model, direction="forward", scope=biggest, trace=0)
+
+fwd.prediction <- predict(fit.fwd, newx = x_test)
+
+summary(fit.fwd)
+```
+
+## 6-5 Stepwise Regression
+The number of independent variable : 35 -> 26
+```{r}
+min.model <- lm(position_numeric ~ 1,data=data_train)
+full.model <- lm(position_numeric~.,data=data_train)
+
+fit.stepwise <- step(min.model, scope = list(upper=full.model), direction = "both", data=data_train, trace=0)
+
+stepwise.prediction <- predict(fit.stepwise, newx = x_test)
+
+summary(fit.stepwise)
+```
+
+## 6-6 Polynomial Regression (degree=2)
+```{r}
+x <- data_train[,-1]
+fit.poly <- lm(position_numeric ~ poly(x[,1], degree=2, raw=TRUE)
+                               + poly(x[,2], degree=2, raw=TRUE)
+                               + poly(x[,3], degree=2, raw=TRUE)
+                               + poly(x[,4], degree=2, raw=TRUE)
+                               + poly(x[,5], degree=2, raw=TRUE)
+                               + poly(x[,6], degree=2, raw=TRUE)
+                               + poly(x[,7], degree=2, raw=TRUE)
+                               + poly(x[,8], degree=2, raw=TRUE)
+                               + poly(x[,9], degree=2, raw=TRUE)
+                               + poly(x[,10], degree=2, raw=TRUE)
+                               + poly(x[,11], degree=2, raw=TRUE)
+                               + poly(x[,12], degree=2, raw=TRUE)
+                               + poly(x[,13], degree=2, raw=TRUE)
+                               + poly(x[,14], degree=2, raw=TRUE)
+                               + poly(x[,15], degree=2, raw=TRUE)
+                               + poly(x[,16], degree=2, raw=TRUE)
+                               + poly(x[,17], degree=2, raw=TRUE)
+                               + poly(x[,18], degree=2, raw=TRUE)
+                               + poly(x[,19], degree=2, raw=TRUE)
+                               + poly(x[,20], degree=2, raw=TRUE)
+                               + poly(x[,21], degree=2, raw=TRUE)
+                               + poly(x[,22], degree=2, raw=TRUE)
+                               + poly(x[,23], degree=2, raw=TRUE)
+                               + poly(x[,24], degree=2, raw=TRUE)
+                               + poly(x[,25], degree=2, raw=TRUE)
+                               + poly(x[,26], degree=2, raw=TRUE)
+                               + poly(x[,27], degree=2, raw=TRUE)
+                               + poly(x[,28], degree=2, raw=TRUE)
+                               + poly(x[,29], degree=2, raw=TRUE)
+                               + poly(x[,30], degree=2, raw=TRUE)
+                               + poly(x[,31], degree=2, raw=TRUE)
+                               + poly(x[,32], degree=2, raw=TRUE)
+                               + poly(x[,33], degree=2, raw=TRUE)
+                               + poly(x[,34], degree=2, raw=TRUE)
+                               + poly(x[,35], degree=2, raw=TRUE), data=data_train)
+
+poly.prediction <- predict(fit.poly, newx = x_test)
+
+summary(fit.poly)
+```
+
+## 6-7 Polynomial Regression (degree=3)
+```{r}
+x <- data_train[,-1]
+fit.poly2 <- lm(position_numeric ~ poly(x[,1], degree=3, raw=TRUE)
+                               + poly(x[,2], degree=3, raw=TRUE)
+                               + poly(x[,3], degree=3, raw=TRUE)
+                               + poly(x[,4], degree=3, raw=TRUE)
+                               + poly(x[,5], degree=3, raw=TRUE)
+                               + poly(x[,6], degree=3, raw=TRUE)
+                               + poly(x[,7], degree=3, raw=TRUE)
+                               + poly(x[,8], degree=3, raw=TRUE)
+                               + poly(x[,9], degree=3, raw=TRUE)
+                               + poly(x[,10], degree=3, raw=TRUE)
+                               + poly(x[,11], degree=3, raw=TRUE)
+                               + poly(x[,12], degree=3, raw=TRUE)
+                               + poly(x[,13], degree=3, raw=TRUE)
+                               + poly(x[,14], degree=3, raw=TRUE)
+                               + poly(x[,15], degree=3, raw=TRUE)
+                               + poly(x[,16], degree=3, raw=TRUE)
+                               + poly(x[,17], degree=3, raw=TRUE)
+                               + poly(x[,18], degree=3, raw=TRUE)
+                               + poly(x[,19], degree=3, raw=TRUE)
+                               + poly(x[,20], degree=3, raw=TRUE)
+                               + poly(x[,21], degree=3, raw=TRUE)
+                               + poly(x[,22], degree=3, raw=TRUE)
+                               + poly(x[,23], degree=3, raw=TRUE)
+                               + poly(x[,24], degree=3, raw=TRUE)
+                               + poly(x[,25], degree=3, raw=TRUE)
+                               + poly(x[,26], degree=3, raw=TRUE)
+                               + poly(x[,27], degree=3, raw=TRUE)
+                               + poly(x[,28], degree=3, raw=TRUE)
+                               + poly(x[,29], degree=3, raw=TRUE)
+                               + poly(x[,30], degree=3, raw=TRUE)
+                               + poly(x[,31], degree=3, raw=TRUE)
+                               + poly(x[,32], degree=3, raw=TRUE)
+                               + poly(x[,33], degree=3, raw=TRUE)
+                               + poly(x[,34], degree=3, raw=TRUE)
+                               + poly(x[,35], degree=3, raw=TRUE), data=data_train)
+
+poly2.prediction <- predict(fit.poly2, newx = x_test)
+
+summary(fit.poly2)
+```
+
+## 6-8 Polynomial Regression (degree=8)
+```{r}
+x <- data_train[,-1]
+fit.poly3 <- lm(position_numeric ~ poly(x[,1], degree=8, raw=TRUE)
+                               + poly(x[,2], degree=8, raw=TRUE)
+                               + poly(x[,3], degree=8, raw=TRUE)
+                               + poly(x[,4], degree=8, raw=TRUE)
+                               + poly(x[,5], degree=8, raw=TRUE)
+                               + poly(x[,6], degree=8, raw=TRUE)
+                               + poly(x[,7], degree=8, raw=TRUE)
+                               + poly(x[,8], degree=8, raw=TRUE)
+                               + poly(x[,9], degree=8, raw=TRUE)
+                               + poly(x[,10], degree=8, raw=TRUE)
+                               + poly(x[,11], degree=8, raw=TRUE)
+                               + poly(x[,12], degree=8, raw=TRUE)
+                               + poly(x[,13], degree=8, raw=TRUE)
+                               + poly(x[,14], degree=8, raw=TRUE)
+                               + poly(x[,15], degree=8, raw=TRUE)
+                               + poly(x[,16], degree=8, raw=TRUE)
+                               + poly(x[,17], degree=8, raw=TRUE)
+                               + poly(x[,18], degree=8, raw=TRUE)
+                               + poly(x[,19], degree=8, raw=TRUE)
+                               + poly(x[,20], degree=8, raw=TRUE)
+                               + poly(x[,21], degree=8, raw=TRUE)
+                               + poly(x[,22], degree=8, raw=TRUE)
+                               + poly(x[,23], degree=8, raw=TRUE)
+                               + poly(x[,24], degree=8, raw=TRUE)
+                               + poly(x[,25], degree=8, raw=TRUE)
+                               + poly(x[,26], degree=8, raw=TRUE)
+                               + poly(x[,27], degree=8, raw=TRUE)
+                               + poly(x[,28], degree=8, raw=TRUE)
+                               + poly(x[,29], degree=8, raw=TRUE)
+                               + poly(x[,30], degree=8, raw=TRUE)
+                               + poly(x[,31], degree=8, raw=TRUE)
+                               + poly(x[,32], degree=8, raw=TRUE)
+                               + poly(x[,33], degree=8, raw=TRUE)
+                               + poly(x[,34], degree=8, raw=TRUE)
+                               + poly(x[,35], degree=8, raw=TRUE), data=data_train)
+
+poly3.prediction <- predict(fit.poly3, newx = x_test)
+
+summary(fit.poly3)
+```
+
+## 6-9 Lasso Regression
+Implementation of the feature Selection via Lasso Regression
+The number of independent variable : 35 -> 32
+```{r}
+library(glmnet)
+
+set.seed(5555)
+fit.lasso <- glmnet(x1, y1, alpha=1, family="gaussian")
+fit.lasso.cv <- cv.glmnet(x1, y1, alpha=1, nfolds=10, type.measure="mse", family="gaussian")
+
+lasso.coef = predict(fit.lasso, type = "coefficients", s=fit.lasso$lambda.min)
+lasso.coef.cv = predict(fit.lasso.cv, type = "coefficients", s=fit.lasso.cv$lambda.min) # coefficients
+
+lasso.prediction = predict(fit.lasso, s=fit.lasso$lambda.min, newx = x2) 
+lasso.prediction.cv = predict(fit.lasso.cv, s=fit.lasso.cv$lambda.min, newx = x2) # coefficients
+
+print(lasso.coef.cv)
+ 
+# summary(fit.lasso)
+summary(fit.lasso.cv)
+```
+
+
+## 6-10 Ridge Regression 
+The number of independent variable : 35 -> 35
+```{r}
+# Ridge regression
+
+set.seed(6666)
+fit.ridge <- glmnet(x1, y1, alpha=0, family="gaussian")
+fit.ridge.cv <- cv.glmnet(x1, y1, alpha=0, nfolds=10, type.measure="mse", family="gaussian")
+
+ridge.coef = predict(fit.ridge, type = "coefficients", s=fit.ridge$lambda.min)
+ridge.coef.cv = predict(fit.ridge.cv, type = "coefficients", s=fit.ridge.cv$lambda.min) # coefficients
+
+ridge.prediction = predict(fit.ridge, s=fit.ridge$lambda.min, newx = x2)
+ridge.prediction.cv = predict(fit.ridge.cv, s=fit.ridge.cv$lambda.min, newx = x2) # coefficients
+
+print(ridge.coef.cv)
+ 
+# summary(fit.ridge)
+summary(fit.ridge.cv)
+```
+
+
+
+
+## 6-11 ElasticNet Regression 
+The number of independent variable : 35 -> 28
+```{r}
+# ELASTIC NET WITH 0 < ALPHA < 1
+
+set.seed(8888)
+
+a3 <- seq(0.02, 0.98, 0.02)
+search <- foreach(i = a3, .combine = rbind) %dopar% {
+  cv <- cv.glmnet(x1, y1, alpha = i, nfold = 10, type.measure = "mse", family="gaussian")
+  data.frame(cvm = cv$cvm[cv$lambda == cv$lambda.min], lambda.1se = cv$lambda.1se, alpha = i)
+}
+
+
+cv3 <- search[search$cvm == min(search$cvm), ]
+
+fit.elnet <- glmnet(x1, y1, alpha = cv3$alpha, family="gaussian")
+fit.elnet.cv <- cv.glmnet(x1, y1, alpha = cv3$alpha, nfolds=10, type.measure="mse", family="gaussian")
+
+elnet.coef = predict(fit.elnet, type = "coefficients", s=fit.elnet$lambda.min)
+elnet.coef.cv = predict(fit.elnet.cv, type = "coefficients", s=fit.elnet.cv$lambda.min) # coefficients
+
+elnet.prediction = predict(fit.elnet, s=fit.elnet$lambda.min, newx = x2)
+elnet.prediction.cv = predict(fit.elnet.cv, s=fit.elnet.cv$lambda.min, newx = x2) # coefficients
+
+# coef(fit.elnet)
+coef(fit.elnet.cv)
+ 
+# summary(fit.elnet)
+summary(fit.elnet.cv)
+```
+
+
+## 6-12 Model Performance Metrics for all models.
+
+R-squared (R2), which is the proportion of variation in the outcome that is explained by the predictor variables. 
+In multiple regression models, R2 corresponds to the squared correlation between the observed outcome values and the predicted values by the model. The Higher the R-squared, the better the model.
+
+Root Mean Squared Error (RMSE), which measures the average error performed by the model in predicting the outcome for an observation. Mathematically, the RMSE is the square root of the mean squared error (MSE), which is the average squared difference between the observed actual outome values and the values predicted by the model. So, MSE = mean((observeds - predicteds)^2) and RMSE = sqrt(MSE). The lower the RMSE, the better the model.
+
+Mean Absolute Error (MAE), like the RMSE, the MAE measures the prediction error. Mathematically, it is the average absolute difference between observed and predicted outcomes, MAE = mean(abs(observeds - predicteds)). MAE is less sensitive to outliers compared to RMSE.
+
+```{r}
+# MSE = mean((observeds - predicteds)^2)
+# RMSE = sqrt(MSE)
+# MAE = mean(abs(observeds - predicteds))
+
+performance <- data.frame(
+        MODEL_NAME = c("Linear", "Backward", "Forward", "Stepwise", "Polynomial(degree=2)"
+                       , "Polynomial(degree=3)", "Polynomial(degree=8)", "Lasso", "Lidge", "ElasticNet")
+        ,  
+          
+        RMSE = c(sqrt(mean((y_test - lm.prediction)^2)),
+            sqrt(mean((y_test - bwd.prediction)^2)),
+            sqrt(mean((y_test - fwd.prediction)^2)),
+            sqrt(mean((y_test - stepwise.prediction)^2)),
+            sqrt(mean((y_test - poly.prediction)^2)),
+            sqrt(mean((y_test - poly2.prediction)^2)),
+            sqrt(mean((y_test - poly3.prediction)^2)),
+            sqrt(mean((y_test - lasso.prediction)^2)),
+            sqrt(mean((y_test - ridge.prediction)^2)),
+            sqrt(mean((y_test - elnet.prediction)^2)))
+        ,
+            
+        MAE = c(mean(abs(y_test - lm.prediction)),
+            mean(abs(y_test - bwd.prediction)),
+            mean(abs(y_test - fwd.prediction)),
+            mean(abs(y_test - stepwise.prediction)),
+            mean(abs(y_test - poly.prediction)),
+            mean(abs(y_test - poly2.prediction)),
+            mean(abs(y_test - poly3.prediction)),
+            mean(abs(y_test - lasso.prediction)),
+            mean(abs(y_test - ridge.prediction)),
+            mean(abs(y_test - elnet.prediction)))
+        )
+
+print(performance)
+
+```
+The result is that the Lasso Recession model has the smallest value in RMSE and MAE.
+
+
+
+## 6-13 RMSE on test set with 10-Folds Cross Validation of Lasso, Lidge, ElasticNet.
+```{r}
+# RMSE on test set
+estimation <- data.frame(
+  regression = c("Lasso", "Lidge", "ElasticNet"),
+  RMSE = c(sqrt(mean((y2 - lasso.prediction.cv)^2)), sqrt(mean((y2 - ridge.prediction.cv)^2)), 
+          sqrt(mean((y2 - elnet.prediction.cv)^2))),
+  MAE = c(mean(abs(y2 - lasso.prediction.cv)), mean(abs(y2 - ridge.prediction.cv)), 
+          mean(abs(y2 - elnet.prediction.cv)))
+  ) 
+estimation
+
+```
+The result is that the ElasticNet Recession model has the smallest value in RMSE.
+
+
+
+## 6-14 visualization of LASSO, Ridge, Elastic Net
+Plot solution path and cross-validated MSE as function of λ.
+```{r}
+# Plot solution paths:
+par(mfrow=c(3,2))
+# For plotting options, type '?plot.glmnet' in R console
+plot(fit.lasso, xvar="lambda", main="LASSO")
+plot(fit.lasso.cv, main="LASSO")
+
+plot(fit.ridge, xvar="lambda", main="Ridge")
+plot(fit.ridge.cv, main="Ridge")
+
+plot(fit.elnet, xvar="lambda", main="Elastic Net")
+plot(fit.elnet.cv, main="Elastic Net")
+```
+
+## 6-15 Visualization of Lasso and ElasticNet Regresstion Model
+```{r}
+par(mfrow=c(1,2))
+
+# Lasso predicted and observed
+plot(y2, lasso.prediction.cv, ylim=c(min(lasso.prediction.cv), max(lasso.prediction.cv)), xlim=c(min(y2), max(y2)),main="Test Dataset", xlab="observed", ylab="lasso Predicted")
+abline(0, 1, col="red")
+
+# ElasticNet predicted and observed
+plot(y2, elnet.prediction.cv, ylim=c(min(elnet.prediction.cv), max(elnet.prediction.cv)), xlim=c(min(y2), max(y2)),main="Test Dataset", xlab="observed", ylab="ElasticNet Predicted")
+abline(0, 1, col="red")
+
+```
+
+
+
+## 6-16 Apply my soccer score with all regression models.
+recommend my soccer position with all regression models.
+```{r}
+# prepare my dataset for recommendation of my soocer position. 
+
+# create dataset
+me_test <- x_test
+
+# input my soccer score
+me_test$height[1] <- 173
+me_test$weight[1] <- 171
+me_test$preferred_foot[1] <- 2
+me_test$crossing[1] <- 80
+me_test$finishing[1] <- 85
+me_test$heading_accuracy[1] <- 60
+me_test$short_passing[1] <- 90
+me_test$volleys[1] <- 75
+me_test$dribbling[1] <- 95
+me_test$curve[1] <- 85
+me_test$free_kick_accuracy[1] <- 80
+me_test$long_passing[1] <- 90
+me_test$ball_control[1] <- 95
+me_test$acceleration[1] <- 50
+me_test$sprint_speed[1] <- 30
+me_test$agility[1] <- 70
+me_test$reactions[1] <- 80
+me_test$balance[1] <- 75
+me_test$shot_power[1] <- 85
+me_test$jumping[1] <- 40
+me_test$stamina[1] <- 40
+me_test$strength[1] <- 75
+me_test$long_shots[1] <- 85
+me_test$aggression[1] <- 90
+me_test$interceptions[1] <- 65
+me_test$positioning[1] <- 80
+me_test$vision[1] <- 95
+me_test$marking[1] <- 60
+me_test$standing_tackle[1] <- 30
+me_test$sliding_tackle[1] <- 25
+me_test$gk_diving[1] <- 7
+me_test$gk_handling[1] <- 7
+me_test$gk_kicking[1] <- 12
+me_test$gk_positioning[1] <- 7
+me_test$gk_reflexes[1] <- 7
+
+# convert dataframe to matrix.
+me_test_matrix <- as.matrix(me_test)
+
+
+# recommendation of my soccer position with all regresstion models.
+
+set.seed(99999)
+
+lm.prediction.me <- predict(fit.lm, newx = me_test_matrix)
+bwd.prediction.me <- predict(fit.bwd, newx = me_test_matrix)
+fwd.prediction.me <- predict(fit.fwd, newx = me_test_matrix)
+stepwise.prediction.me <- predict(fit.stepwise, newx = me_test_matrix)
+poly.prediction.me <- predict(fit.poly, newx = me_test_matrix)
+poly2.prediction.me <- predict(fit.poly2, newx = me_test_matrix)
+poly3.prediction.me <- predict(fit.poly3, newx = me_test_matrix)
+lasso.prediction.me <- predict(fit.lasso, s=fit.lasso$lambda.min, newx = me_test_matrix) 
+lasso.prediction.cv.me <- predict(fit.lasso.cv, s=fit.lasso.cv$lambda.min, newx = me_test_matrix)
+ridge.prediction.me <- predict(fit.ridge, s=fit.ridge$lambda.min, newx = me_test_matrix)
+ridge.prediction.cv.me <- predict(fit.ridge.cv, s=fit.ridge.cv$lambda.min, newx = me_test_matrix)
+elnet.prediction.me <- predict(fit.elnet, s=fit.elnet$lambda.min, newx = me_test_matrix)
+elnet.prediction.cv.me <- predict(fit.elnet.cv, s=fit.elnet.cv$lambda.min, newx = me_test_matrix)
+
+
+
+# result of recommendation my soccer position with all regresstion models.
+
+recom_myposition <- data.frame(
+        Linear <- lm.prediction.me[1], 
+        Backward <- bwd.prediction.me[1],
+        Forward <- fwd.prediction.me[1], 
+        Stepwise <- stepwise.prediction.me[1],
+        Polynomial1 <- poly.prediction.me[1],
+        Polynomial2 <- poly2.prediction.me[1],
+        Polynomial3 <- poly3.prediction.me[1], 
+        Lasso <- poly3.prediction.me[1], 
+        Lasso.cv <- lasso.prediction.me[1],
+        Lasso  <- lasso.prediction.cv.me[1], 
+        Lidge  <- ridge.prediction.me[1], 
+        Lidge.cv  <- ridge.prediction.cv.me[1], 
+        ElasticNet  <- elnet.prediction.me[1], 
+        ElasticNet.cv <- elnet.prediction.cv.me[1])
+
+
+# create dataframe of result.
+recom_myposition <- data.frame(
+          c("Linear", "Backward", "Forward", "Stepwise", "Polynomial1",
+            "Polynomial2", "Polynomial3", "Lasso", "Lasso.cv", "Lidge", "Lidge.cv",
+            "ElasticNet", "ElasticNet.cv"),
+  
+           c(lm.prediction.me[1], 
+            bwd.prediction.me[1],
+            fwd.prediction.me[1], 
+            stepwise.prediction.me[1],
+            poly.prediction.me[1],
+            poly2.prediction.me[1],
+            poly3.prediction.me[1], 
+            lasso.prediction.me[1],
+            lasso.prediction.cv.me[1], 
+            ridge.prediction.me[1], 
+            ridge.prediction.cv.me[1], 
+            elnet.prediction.me[1], 
+            elnet.prediction.cv.me[1]))
+
+colnames(recom_myposition) <- c("Regression", "My position recommend")
+
+recom_myposition
+ 
+```
+I am satisfied with the results of Lasso and Lidge and ElasticNet regression models.
+Among them, I was most satisfied with the result of using ElasticNet.cv model.
+Because it is my preferred soccer position.
+So I will choose a ElasticNet regression model using 10-Folds cv.
+
+
+
+# 7. Summary
+First, we preprocessed the dataset with removed missing value, unnecessary variables, convering variable type.
+And then, we checked linear model assumptions such as Normality, Independence, Heteroscedasticity, Multicolinearity.
+The dataset does not meet the assumption of a linear model and it also has multicollinearity problems. 
+In order to increase performance, we used some regresstion models such as Backward Regression, Forward Regression,
+Stepwise Regression, Polynomial Regression, Lasso Regression, Ridge Regression, ElasticNet Regression.
+And we evaluated all regression models with RMSE, MAE. 
+The result is that the Lasso, ElasticNet Recession models has the smallest value in RMSE and MAE.
+Finally, I input my soccer position information to all regression models for predicton of my position.
+The results were satisfied only on some models.
+Among them, I was most satisfied with the result of using ElasticNet.cv model.
+Because it matches my preferred soccer position,
+
+
+
+# 8. Conclusion
+In order to provide soccer position recommend service to the clients,
+We will choose a ElasticNet regression model with 10-Folds cv.
+
+Because it has the best performance among regression models. 
+And the elastic net model is that it enables effective regularization 
+via the ridge penalty with the feature selection characteristics of the lasso penalty. 
+Effectively, elastic nets allow us to control multicollinearity concerns, 
+perform regression when p>n, and reduce excessive noise in our data so that
+we can isolate the most influential variables while balancing prediction accuracy.
+
+However, elastic nets, and regularization models in general, still assume linear relationships 
+between the features and the target variable. 
+And although we can incorporate non-additive models with interactions, 
+doing this when the number of features is large is extremely tedious and difficult. 
+When non-linear relationships exist, its beneficial to start exploring non-linear regression approaches.
+
+
+
+# 9. Suggestion for our Clients
+Our clients are all people who love soccer. If you want to know your soccer position for your soccer match.
+You can use our service that recommend soccer position if you input your information data to our service.
+This service has machine learning technology using ElasticNet regression model. 
+And also this service has an average error of 4.651255(MAE). 
+Is there a service with better performance? Choose our sevice. You will not regret it.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# =======================================
+date: "2019년 6월 2일"
+# Assingment #3 (Time Series)
+
+
+# 1. Objectives(Business problem)
+The objective of this project is to forecast the number of natinoal soccer match in next three years. 
+Using time series models, we create a service that we offer information which is the number of natinoal soccer match in the near future.
+
+# 2. Hypothesis
+the monthly national soccer matches can be predicted through time series analysis with a prepared dataset.
+
+# 3. Select Optimal Dataset
+## Dataset Description (single variable for time series analytics)
+The dataset includes 1,416 instances and 1 response variable and 1 time variable.
+This dataset contains data for the number of national soccer match monthly in the past over 100 years (1900 ~ 2017).
+The data is sourced from https://www.kaggle.com/martj42/international-football-results-from-1872-to-2017 website and 
+contains various data such as below
+
+### 1) time variable (1900 ~ 2017, month)
+### 2) int variable (the number of national soccer match)
+
+
+# 4. Data Preparation
+cleaning and transforming raw data prior to processing and analysis
+```{r}
+library(AER)
+library(readxl)
+library(dynlm)
+library(quantmod)
+library(scales)
+library(fGarch)
+```
+
+## 4-1 Load a dataset.
+```{r}
+# load the dataset
+library(readxl)
+match = read_xls("C://Users//joon//Documents//soccer_national_match05.xls")
+# head(position.data)
+str(match)
+dim(match)
+```
+
+## 4-2 Checking Missing Value
+result : no null values.
+```{r}
+table(is.na.data.frame(match))
+```
+
+## 4-3 Converting the dataset to a Time series object
+```{r}
+match.ts <- ts(match$num_match, start = c(1900, 1),end = c(2017, 12),frequency = 12)
+```
+
+
+# 5. Exploratory Data Analysis
+
+## 5-1 Plotting the time series data.
+result : It is a time series graph that has trend and seasonal components and increases variation with time.
+추세성분과 계절성분을 갖고 시간의 변화에 따라 변동폭이 커지는 시계열 그래프 형태이다.
+```{r}
+plot(match.ts)  
+abline(reg = lm(match.ts~time(match.ts)))
+```
+
+## 5-2 Checking for Stationarity
+Stationarity : At any point(time), the average, variance, and auto-covariance measurements have the same value.
+
+정상성 조건 : 어떤 시점에서 평균, 분산, 자기공분산을 측정하더라도 동일한 값을 갖는다.
+
+(1) 평균이 일정 : 모든 시점에 대해 일정한 평균을 가진다.
+- 평균이 일정하지 않은 시계열은 차분(difference)을 통해 정상화
+- 차분은 현시점 자료에서 이전 시점 자료를 빼는 것
+(2) 분산도 시점에 의존하지 않음
+- 분산이 일정하지 않은 시계열은 변환(transformation)을 통해 정상화
+(3) 공분산도 시차에만 의존할 뿐, 특정 시점에는 의존하지 않음
+
+result : From the result we can clearly see that P value < 0.05 which means that we accept the 
+alternative hypothesis,i.e., the given Time series is stationary.
+```{r}
+library(tseries)
+library(forecast)
+adf.test(match.ts, alternative = "stationary")
+```
+
+## 5-3 Extracting the Seasonality and Trend
+result : The below graph shows that the mean and the variance are not constant.
+결과 : trend그래프를 보면 평균이 일정하지 않고 observed그래프를 보면 분산이 조금씩 증가하는 것을 알 수 있다.
+```{r}
+x<-decompose(match.ts,type = c("multiplicative"))
+plot(x)
+# Through this plot we can easily identify the Trend, Seasonality and Irregular
+# components in our Time series
+```
+
+## 5-4 Seasonal displays
+결과 : 6월을 제외하고는 계절별 경기수는 큰 차이가 없다. 
+
+result : Except for June, there is no big difference in the number of soccer match per season.
+```{r}
+monthplot(match.ts)
+```
+
+
+# 6. Select of Optimal Models and Visualization.
+
+## 6-1 ARIMA Model
+
+### 6-1-1 Differencing for converting Non-stationary to stationary.
+Since our series is Non-stationary, we have to make it stationary. 
+
+result : d = 1
+```{r}
+# tells us the number of differences(d) required to achieve stationarity
+ndiffs(match.ts)
+```
+
+결과 : 1차 차분만 해도 어느정도 정상화 패턴을 보임. 
+```{r}
+# 차분을 통해 데이터 정상화
+match_diff1 <- diff(match.ts, differences = 1)
+match_diff2 <- diff(match.ts, differences = 2)
+match_diff3 <- diff(match.ts, differences = 3)
+
+par(mfrow = c(2,2))
+
+plot.ts(match.ts)
+plot.ts(match_diff1)    # 1차 차분만 해도 어느정도 정상화 패턴을 보임
+plot.ts(match_diff2)
+plot.ts(match_diff3)
+```
+
+### 6-1-2 Trend of increasing variance -> adjusting variance by log transformation
+result : Even after log transformation, variances differ at certain times.
+So we will not use log transformation.
+```{r}
+#just orginal time series data
+plot.ts(match.ts)
+
+#converting with log
+match.ts_log <- log(match.ts)
+plot.ts(match.ts_log)
+```
+
+
+### 6-1-3 Determination of Order of Auto regression(p) and order of Moving averages(q)
+now we know the value of p,d and q we can create our model using Arima(p,d,q) function
+
+Acf()로 lag 몇에서 절단값인지 알 수 있다. 예를 들어 lag 1 절단값 이면 MA(0)가 되고 q=0 가 된다.
+결과 : 차분 이후에도 절단값이 명확하지 않아서 ARIMA 모형 확정이 어렵다.
+```{r}
+par(mfrow = c(1,2))
+
+# Autocorrelation function
+# This is used for finding the order of Auto regression(p)
+acf(match.ts)
+
+# This is used for finding the order of Auto regression(p) with d=1 series.
+acf(match_diff1)     
+```
+
+
+Pacf()로 lag 몇에서 절단값인지 알 수 있다. 예를 들어 lag 4 절단값 이면 AR(3)가 되고 p=3 가 된다.
+결과 : 차분(d=1) 이후에도 절단값이 명확하지 않아서 ARIMA 모형 확정이 어렵다.
+```{r}
+par(mfrow = c(1,2))
+
+# Partial Autocorrelation function
+# This is used for finding the order of Moving averages(q)
+pacf(match.ts) 
+
+# This is used for finding the order of Moving averages(q) with d=1 series.
+pacf(match_diff1)    
+```
+
+Acf() and Pacf() in forecast, along with a combination display using tsdisplay()
+
+결과 : tsdisplay()를 사용한 ACF, PACF를 통해서도 절단값이 명확하지 않아서 ARIMA 모형 확정이 어렵다.
+```{r}
+tsdisplay(match_diff1)
+```
+
+### 6-1-4 Using the Auto.Arima function with match.ts
+```{r}
+match_auto.arima <- auto.arima(match.ts)
+summary(match_auto.arima)
+accuracy(match_auto.arima)  #  Accuracy of the Model
+```
+
+### 6-1-5 Forecasting the future values
+Forecasts 2018 ~ 2020 from ARIMA(1,0,1)(0,1,2)[12]
+```{r}
+match_fcast <- forecast(match_auto.arima, h=36, level = 95)
+plot(match_fcast, main="Forecasts 2018 ~ 2020 from ARIMA(1,0,1)(0,1,2)[12]")
+```
+
+### 6-1-6 Auto.Arima Model Evaluation
+The residuals are even.
+But p-value(lag = 1,2,3) can not reject null hypothesis(= auto-correlation is zero)
+
+잔차가 균등하다.
+하지만 p-value가 lag=1,2,3 에서만 귀무가설(자기상관이 0이다.)을 기각하지 못한다.
+결과적으로 우리는 일정 부분에서 적절하지 않은 Arima 모형을 선정한 것이다.
+그래서 LSTM 모델을 적용해 보도록 하겠다.
+```{r}
+tsdiag(match_auto.arima)
+```
+
+
+## 6-2 LSTM (Long Short-Term Memory Units)
+RNN은 관련 정보와 그 정보를 사용하는 지점 사이 거리가 멀 경우 역전파시 그래디언트가 점차 줄어 학습능력이 크게 저하되는 것으로 알려져 있습니다. 
+이 문제를 극복하기 위해서 고안된 것이 바로 LSTM입니다. LSTM은 RNN의 히든 state에 cell-state를 추가한 구조입니다. 
+LSTM은 오차의 그라디언트가 시간을 거슬러서 잘 흘러갈 수 있도록 도와줍니다. 
+backprop하는 과정에서 오차의 값이 더 잘 유지되는데, 결과적으로 1000단계가 넘게 거슬러 올라갈 수 있습니다.
+
+### 6-2-1 Load the neccessary libraries & the dataset
+```{r}
+#install.packages("devtools")
+#devtools::install_github("rstudio/keras")
+#install_tensorflow() # 일반적인 
+#install_keras(tensorflow = "gpu") #노트북이 GPU 지원하는 경우
+#install_keras() #노트북이 일반 내장형 그래픽카드일 경우
+
+library(devtools)
+library(tensorflow)
+library(keras)
+```
+
+### 6-2-2 Data preparation
+1) Transform data to stationary
+```{r}
+# transform data to stationarity
+diffed = diff(match.ts, differences = 1)
+head(diffed)
+```
+
+2) Lagged dataset
+LSTM expects the data to be in a supervised learning mode. That is, having a target variable Y and predictor X. To achieve this, we transform the series by lagging the series and have the value at time (t-k) as the input and value at time t as the ouput, for a k-step lagged dataset. 
+```{r}
+# create a lagged dataset, i.e to be supervised learning
+lag_transform <- function(x, k= 1){
+    
+      lagged =  c(rep(NA, k), x[1:(length(x)-k)])
+      DF = as.data.frame(cbind(lagged, x))
+      colnames(DF) <- c( paste0('x-', k), 'x')
+      DF[is.na(DF)] <- 0
+      return(DF)
+}
+supervised = lag_transform(diffed, 1)
+head(supervised)
+```
+
+3) Split dataset into training and testing sets
+Unlike in most analysis where training and testing data sets are randomly sampled, with time series data the order of the observations does matter. The following code split the first 70% of the series as training set and the remaining 30% as test set.
+```{r}
+## split into train and test sets
+
+N = nrow(supervised)
+n = round(N *0.85, digits = 0)
+train = supervised[1:n, ]
+test  = supervised[(n+1):N,  ]
+```
+
+
+4) Normalize the data
+Just like in any other neural network model, we rescale the input data X to the range of the activation function. As shown earlier, the default activation function for LSTM is sigmoid function whose range is [-1, 1]. The code below will help in this transformation. Note that the min and max values of the training data set are the scaling coefficients used to scale both the training and testing data sets as well as the predicted values. This ensures that the min and max values of the test data do not influence the model.
+```{r}
+## scale data
+scale_data = function(train, test, feature_range = c(0, 1)) {
+  x = train
+  fr_min = feature_range[1]
+  fr_max = feature_range[2]
+  std_train = ((x - min(x) ) / (max(x) - min(x)  ))
+  std_test  = ((test - min(x) ) / (max(x) - min(x)  ))
+  
+  scaled_train = std_train *(fr_max -fr_min) + fr_min
+  scaled_test = std_test *(fr_max -fr_min) + fr_min
+  
+  return( list(scaled_train = as.vector(scaled_train), scaled_test = as.vector(scaled_test) ,scaler= c(min =min(x), max = max(x))) )
+  
+}
+
+
+Scaled = scale_data(train, test, c(-1, 1))
+
+y_train = Scaled$scaled_train[, 2]
+x_train = Scaled$scaled_train[, 1]
+
+y_test = Scaled$scaled_test[, 2]
+x_test = Scaled$scaled_test[, 1]
+```
+
+The following code will be required to revert the predicted values to the original scale.
+```{r}
+## inverse-transform
+invert_scaling = function(scaled, scaler, feature_range = c(0, 1)){
+  min = scaler[1]
+  max = scaler[2]
+  t = length(scaled)
+  mins = feature_range[1]
+  maxs = feature_range[2]
+  inverted_dfs = numeric(t)
+  
+  for( i in 1:t){
+    X = (scaled[i]- mins)/(maxs - mins)
+    rawValues = X *(max - min) + min
+    inverted_dfs[i] <- rawValues
+  }
+  return(inverted_dfs)
+}
+
+```
+
+
+### 6-2-3 Modeling
+```{r relu, echo=FALSE, fig.cap="A caption", out.width = '100%'}
+knitr::include_graphics("C://Users//joon//Documents//gates_lstm.png")
+```
+
+1) Define the model
+히든 레이어에서 넘겨받은 상태를 다음 배치의 샘플에 대한 초기 상태로 재사용할 수 있도록 stateful= TRUE로 설정하고, 네트워크가 상태 저장적이기 때문에 현재의 [samples, features]로 부터 3차원 배열의 [samples, timesteps, features]로 입력 배치로 만들어야 한다.
+
+(1) Samples: Number of observations in each batch. In this model the batch size = 1.
+
+(2) Timesteps: Separate time steps for a given observations. In this model the timesteps = 1
+
+(3) Features: For a univariate case, like in this model, the features = 1
+
+```{r}
+# Reshape the input to 3-dim
+dim(x_train) <- c(length(x_train), 1, 1)
+
+# specify required arguments
+X_shape2 = dim(x_train)[2]
+X_shape3 = dim(x_train)[3]
+batch_size = 1                # must be a common factor of both the train and test samples
+units = 1                     # can adjust this, in model tuninig phase
+
+#=========================================================================================
+
+model <- keras_model_sequential() 
+model%>%
+  layer_lstm(units, batch_input_shape = c(batch_size, X_shape2, X_shape3), stateful= TRUE)%>%
+  layer_dense(units = 1)
+```
+
+
+2) Compile the model (model constructure)
+Here I have specified the mean_squared_error as the loss function, Adaptive Monument Estimation (ADAM) as the optimization algorithm and learning rate and learning rate decay over each update. Finaly, I have used the accuracy as the metric to assess the model performance.
+```{r}
+model %>% compile(
+  loss = 'mean_squared_error',
+  optimizer = optimizer_adam( lr= 0.02, decay = 1e-6 ),  
+  metrics = c('accuracy')
+)
+
+summary(model)
+```
+
+
+3) Fit the model (Traing)
+We set the argument shuffle = FALSE to avoid shuffling the training set and maintain the dependencies between xi and xi+t. LSTM also requires resetting of the network state after each epoch. To achive this we run a loop over epochs where within each epoch we fit the model and reset the states via the argument reset_states().
+```{r}
+Epochs = 100   
+for(i in 1:Epochs ){
+  model %>% fit(x_train, y_train, epochs=1, batch_size=batch_size, verbose=1, shuffle=FALSE)
+  model %>% reset_states()
+}
+```
+
+4) Make predictions
+```{r}
+L = length(x_test)
+scaler = Scaled$scaler
+predictions = numeric(L)
+
+for(i in 1:L){
+     X = x_test[i]
+     dim(X) = c(1,1,1)
+     yhat = model %>% predict(X, batch_size=batch_size)
+     # invert scaling
+     yhat = invert_scaling(yhat, scaler,  c(-1, 1))
+     # invert differencing
+     yhat  = yhat + match.ts[(n+i)]
+     # store
+     predictions[i] <- yhat
+}
+```
+
+
+### 6-2-4 Plot to check accuracy of predicted value. 
+
+```{r}
+#prepare real value
+real_y_value <- match$num_match
+
+#prepare predicted value
+x <- c()
+x[1:1204] <- "NA" 
+predictions <- c(x, predictions)
+
+#plot predicted value(train:test=0.85:0.15) & real value
+plot(x=1:length(real_y_value), y=real_y_value, type="l", col="gray", xlab="time index", ylab="the number of match, monthly")
+lines(x=1:length(real_y_value), y=predictions, col="red")
+title(main="predicted value(train:test=0.85:0.15) & real value")
+legend("topleft", c("predicted value(red)", "real value(gray)"), cex=1.2)
+```
+
+
+# 7. Summary
+First, Converted the dataset into Time series object using ts function.
+And then, Checked for stationarity and plotted the acf and pacf plots.
+And We Used decompose function to extract the seasonality and Trend components from the Time series.
+In order to forecast, we applied auto.arima model but it was not suitable. 
+because it is that p-value(lag = 1,2,3) can not reject null hypothesis(= auto-correlation is zero).
+In order to increase performance, we applied LSTM model. 
+We split train, test dataset with 0.85. and predicted value with test data.
+We used Sigmoid to reduce Gradient Loss.
+Finally, We plot to check accuracy of predicted value. It was just satisfied with plotting result. 
+
+
+# 8. Conclusion
+In order to offer better information to the clients, we selected LSTM model.
+between ARIMA and LSTM, we were satisfied with the result of LSTM model.
+I'm satisfied with the high accuracy, but I'm afraid of overfitting.
+In the future, we will study ways to reduce LSTM's overfitting and get better results.
+
+
+# 9. Recommendation for virtual clients & Further Development Direction
+Our clients are all people who love soccer. If you want to know the number of national soccer match in the near future.
+You should choose our service. This service has machine learning technology using LSTM model. 
+Is there a service with better performance? Choose our sevice. You will not regret it.
